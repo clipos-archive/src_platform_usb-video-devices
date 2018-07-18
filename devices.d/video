@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2012-2018 ANSSI. All Rights Reserved.
+# USB video devices creation script for CLIP
+# Copyright 2012 SGDSN/ANSSI
+# Author: Yves-Alexis Perez <clipos@ssi.gouv.fr>
+#
+# All rights reserved
+
+source "/lib/clip/video.sub" || exit 1
+
+# Creation des peripheriques pour les caméras connectées au demarrage
+make_devs() {
+	find "${SYSPATH}" -name 'video*' -printf "%P\n" 2>/dev/null | while read c; do
+		local num="${c##video}"
+		make_videodevs "${num}"
+	done
+}
+
+remove_devs() {
+	local j f
+	for j in ${CLIP_JAILS}; do
+		for f in "/mounts/vsdev/${j}/user_devs/"video*; do
+			[[ -c "${f}" ]] && rm -f "${f}"
+		done
+	done
+	for f in "/dev/"lp*; do
+		[[ -c "${f}" ]] && rm -f "${f}"
+	done
+	true
+}
+
+case "${1}" in
+	start)
+		make_devs
+		;;
+	stop)
+		remove_devs
+		;;
+	*)
+		echo "hotplug.d/video: unsupported command ${1}"
+		;;
+esac
+

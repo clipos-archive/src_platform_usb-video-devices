@@ -1,0 +1,82 @@
+# USB video devices creation script for CLIP
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2012-2018 ANSSI. All Rights Reserved.
+# Copyright 2012 SGDSN/ANSSI
+# Author: Yves-Alexis Perez <clipos@ssi.gouv.fr>
+#
+# All rights reserved
+
+SYSPATH="/sys/class/video4linux/"
+STATEDIR="/var/run"
+
+source "/lib/clip/import.sub"
+source "/etc/conf.d/clip"
+
+ADMIN_FILE="/etc/admin/conf.d/devices"
+JAILS_IMPORT_FILTER="${CLIP_JAILS/ /|}|none"
+
+#############################
+#                           #
+# DEVICE CREATION FUNCTIONS #
+#                           #
+#############################
+
+make_videodevs() {
+	local -i num=${1}
+	local -i ret=0
+	local devpath= d= jail=
+
+	import_conf_noerr "${ADMIN_FILE}" "${JAILS_IMPORT_FILTER}" "VIDEO${num}_JAIL" 2>/dev/null
+	eval "jail=$(echo \${VIDEO${num}_JAIL})"
+
+	[[ -z "${jail}" || "${jail}" == "none" ]] && return 0
+	devpath="/mounts/vsdev/${jail}/user_devs"
+
+	d="${SYSPATH}/video${num}/"
+
+	local devicename=$(basename "${d}")
+
+	local dev="$(< "${d}/dev")"
+	dev="${dev/:/ }"
+	local rmdev="${devpath}/${devicename}"
+
+	if [[ -e "${rmdev}" ]]; then
+		rm -f "${rmdev}" 
+	fi
+	mknod -m 0666 "${rmdev}" c ${dev} || return 1
+	echo "${jail}" > "${STATEDIR}/video${num}.jail"
+
+	# creation du peripherique pour les acces depuis le socle
+	local clipdev="/dev/${devicename}"
+	if [[ ! -e "${clipdev}" ]]; then
+	    mknod -m 0600 "${clipdev}" c ${dev} || return 1
+	fi
+
+	return 0
+}
+
+remove_videodevs() {
+	local -i num=${1}
+	local -i ret=0
+	local devpath= 
+	local jail="$(<"${STATEDIR}/video${num}.jail")"
+
+	[[ -n "${jail}" ]] || return 0
+	devpath="/mounts/vsdev/${jail}/user_devs"
+
+	local rmdev="${devpath}/video${num}"
+
+	if [[ -c "${rmdev}" ]]; then
+		rm -f "${rmdev}" || ret=1
+	fi
+
+	local clipdev="/dev/video${num}"
+	if [[ -c "${clipdev}" ]]; then
+		rm -f "${clipdev}" || ret=1
+	fi
+
+	rm -f "${STATEDIR}/video${num}.jail"
+	return 0
+}
+
+

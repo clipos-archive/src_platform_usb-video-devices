@@ -1,0 +1,33 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2012-2018 ANSSI. All Rights Reserved.
+# USB video devices creation/removal hotplug hander for CLIP
+# Copyright 2012 SGDSN/ANSSI
+# Author: Yves-Alexis Perez <clipos@ssi.gouv.fr>
+#
+# All rights reserved
+
+source /lib/clip/video.sub || exit 1
+
+[[ -n "${MAJOR}" && -n "${MINOR}" && -n "${DEVPATH}" ]] || exit 0
+
+[[ ${MAJOR} == "81" ]] || exit 0
+
+
+NUM="${DEVPATH##*/video}"
+
+case "${1}" in
+	add)
+		make_videodevs "${NUM}" && clip-device-notify "add" "video"
+		;;
+	remove)
+		remove_videodevs "${NUM}" && clip-device-notify "remove" "video"
+		;;
+	*)
+		logger -p daemon.warning "hotplug/video: unknown action ${1}"
+		exit 1
+		;;
+esac
+
+exit 0
+
